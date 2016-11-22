@@ -1,11 +1,12 @@
 'use strict'
 import React from 'react'
 import { connect } from 'react-redux'
-import { getLevelData, advanceLevel } from '../actions'
+import { getLevelData, updateLevel, getLevelPoints, getDisplayName, updatePoints } from '../actions'
 import Codemirror from 'react-codemirror'
 import Modal from 'react-modal'
 import { bindActionCreators } from 'redux';
 import Hint from '../components/Component_Hint.js'
+import DiffLevel from '../components/Component_DiffLevel.js'
 import { Router } from 'react-router'
 
 require('../../../node_modules/codemirror/mode/javascript/javascript.js');
@@ -68,10 +69,9 @@ class Learn extends React.Component {
   componentWillMount(){
     const component = this;
     this.handleError();
-    this.props.getLevelData(1);
+    this.props.getLevelData();
   }
   updateCode(newCode) {
-    console.log(this, 'this')
     this.setState({
       code: newCode
     });
@@ -105,7 +105,6 @@ class Learn extends React.Component {
     if(window.game.input){
       if(window.game.input.keyboard) {
         window.game.input.keyboard.enabled = false;
-        console.log(window.game.input.keyboard.enabled);
       }
     }
   }
@@ -114,13 +113,12 @@ class Learn extends React.Component {
     if(window.game.input){
       if(window.game.input.keyboard) {
         window.game.input.keyboard.enabled = true;
-        console.log(window.game.input.keyboard.enabled);
       }
     }
   }
 
   startLevel(code, level) {
-    var selectedCode = this.props[code];
+    var selectedCode = this.props.levelData[code];
     //load the code base based on the user's selected difficulty level;
     this.setState({
       code: selectedCode,
@@ -142,10 +140,7 @@ class Learn extends React.Component {
         window.game.destroy();
       }
     }
-  }
-
-  runGame(code) {
-  }
+  } 
 
   generateAndAppendScript() {
     // remove current game script if there is one
@@ -170,16 +165,19 @@ class Learn extends React.Component {
     //generate and append new script
     this.generateAndAppendScript();
 
-    //if there is no canvas, display the error page (even if no error has been caught)
-    if(!document.getElementsByTagName('canvas').length) {
-      this.displayError();
-    }
+    //if there is no canvas, display the error page (even if no error has been caught) needs settimeout since loading script occurs after react functions are run
+    var component = this;
+    setTimeout(function() {
+      if(!document.getElementsByTagName('canvas').length) {
+        component.displayError();
+      } 
+    }, 500)
   }
 
   componentWillReceiveProps(nextProps) {
     this.setState({
       modalIsOpen: true
-    })
+    })   
   }
 
   componentDidMount() {
@@ -187,12 +185,13 @@ class Learn extends React.Component {
   }
 
   componentWillUnmount() {
-    if(window.game) {
-      if(window.game.destroy && window.game.state) {
-        window.game.destroy();
-      }
-    }
+    this.destroyGame();
     document.getElementById('gameScript').remove();
+  }
+
+  nextLevel() {
+    this.props.updateLevel(true, this.props.levelData.id);
+    this.props.updatePoints(this.props.levelData.id, this.state.difficultyLevel);
   }
 
   render() {
@@ -216,22 +215,22 @@ class Learn extends React.Component {
           style={customStyles}
           contentLabel="Example Modal">
           <div id='makeVideo'>
-          <h1 ref="subtitle">Welcome to Level {this.props.id}!</h1>
-          <h2>{this.props.levelname}</h2>
-          <h3>{this.props.description_subone}</h3>
-          <p id="missionpromptwords2">{this.props.description_descone}</p>
-          <h3>{this.props.description_subtwo}</h3>
-          <p id="missionpromptwords2">{this.props.description_desctwo}</p>
-          <h3>{this.props.description_subthree}</h3>
-          <p id="missionpromptwords2">{this.props.description_descthree}</p>
-          <h3>What difficulty level would you like to complete {this.props.levelname} at?</h3>
+          <h1 ref="subtitle">Welcome to Level {this.props.levelData.id}!</h1>
+          <h2>{this.props.levelData.levelname}</h2>
+          <h3>{this.props.levelData.description_subone}</h3>
+          <p id="missionpromptwords2">{this.props.levelData.description_descone}</p>
+          <h3>{this.props.levelData.description_subtwo}</h3>
+          <p id="missionpromptwords2">{this.props.levelData.description_desctwo}</p>
+          <h3>{this.props.levelData.description_subthree}</h3>
+          <p id="missionpromptwords2">{this.props.levelData.description_descthree}</p>
+          <h3>What difficulty level would you like to complete {this.props.levelData.levelname} at?</h3>
         {/*button for choosing difficulty level*/}
-          <button className="btn btn-default difficulty" onClick={this.startLevel.bind(this, 'novicelevelcode', 'Novice')}>Novice</button>
-          <button className="btn btn-default difficulty" onClick={this.startLevel.bind(this, 'heroiclevelcode', 'Heroic')}>Heroic</button>
-          <button className="btn btn-default difficulty" onClick={this.startLevel.bind(this, 'mythiclevelcode', 'Mythic')}>Mythic</button>
+          <button className="btn btn-default difficulty" onClick={this.startLevel.bind(this, 'novicelevelcode', 'Novice')}><DiffLevel level='Novice' completed={this.props.levelData.noviceComplete} points={this.props.levelData.novicepoints}/></button>
+          <button className="btn btn-default difficulty" onClick={this.startLevel.bind(this, 'heroiclevelcode', 'Heroic')}><DiffLevel level='Heroic' completed={this.props.levelData.heroicComplete} points={this.props.levelData.heroicpoints}/></button>
+          <button className="btn btn-default difficulty" onClick={this.startLevel.bind(this, 'mythiclevelcode', 'Mythic')}><DiffLevel level='Mythic' completed={this.props.levelData.mythicComplete} points={this.props.levelData.mythicpoints}/></button>
           </div>
         </Modal>
-        <div id="missionprompt">Your Mission:<span id="missionpromptwords"> {this.props.prompt}</span></div>
+        <div id="missionprompt">Your Mission:<span id="missionpromptwords"> {this.props.levelData.prompt}</span></div>
         <span onClick={this.stop}>
         <Codemirror id="tutorialCode"value={this.state.code} onChange={this.updateCode.bind(this)} options={options} />
         </span>
@@ -250,19 +249,19 @@ class Learn extends React.Component {
           </div>
           <div className="text-center">
             <div>
-              <span id="prompt">Level:<span id="promptwords"> {this.props.levelname}</span></span>
+              <span id="prompt">Level:<span id="promptwords"> {this.props.levelData.levelname}</span></span>
              <span id="prompt">Difficulty:<span id="promptwords"> {this.state.difficultyLevel}</span></span>
             </div>
             <div id="learnbuttons">
               <button id="makeVideo" className="btn btn-default padded" onClick={this.loadCode.bind(this)}> Run My Code </button>
-              <button id="makeVideo" className="btn btn-default padded" onClick={this.props.advanceLevel.bind(this, this.props.id)}> Next Level </button>
+              <button id="makeVideo" className="btn btn-default padded" onClick={this.nextLevel.bind(this)}> Next Level </button>
               <button id="makeVideo" className="btn btn-default padded" onClick={this.refresh.bind(this)}> Reset Level </button>
             </div>
             <br></br>
             <div id="hints">
-              <Hint hint={this.props.hint1}/>
-              <Hint hint={this.props.hint2}/>
-              <Hint hint={this.props.hint3}/>
+              <Hint hint={this.props.levelData.hint1}/>
+              <Hint hint={this.props.levelData.hint2}/>
+              <Hint hint={this.props.levelData.hint3}/>
             </div>
             <span id="makeVideo"> Use A Hint? </span>
           </div>
@@ -274,35 +273,29 @@ class Learn extends React.Component {
 }
 
 function mapStateToProps(state){
+  console.log('map state to props learn container', state)
   return {
-    id: state.getLevelData.id,
-    levelname: state.getLevelData.levelname,
-    prompt: state.getLevelData.prompt,
-    description_subone:state.getLevelData.description_subone,
-    description_descone:state.getLevelData.description_descone,
-    description_subtwo:state.getLevelData.description_subtwo,
-    description_desctwo:state.getLevelData.description_desctwo,
-    description_subthree:state.getLevelData.description_subthree,
-    description_descthree:state.getLevelData.description_descthree,
-    hint1: state.getLevelData.hint1,
-    hint2: state.getLevelData.hint2,
-    hint3: state.getLevelData.hint3,
-    heroiclevelcode: state.getLevelData.heroiclevelcode,
-    mythiclevelcode: state.getLevelData.mythiclevelcode,
-    novicelevelcode: state.getLevelData.novicelevelcode,
-    difficultyLevel: state.getLevelData.difficultyLevel
+    levelData: state.getLevelData
   }
 }
 
 function mapDispatchToProps(dispatch){
   return {
-    getLevelData: (userid) => {
-      dispatch(getLevelData(userid))
+    
+    getLevelData: () => {
+      dispatch(getLevelData())
     },
     dispatch: dispatch,
-    advanceLevel: (currlevel) => {
-      dispatch(advanceLevel(currlevel))
+    updateLevel: (advanceBoolean, currlevel) => {
+      dispatch(updateLevel(advanceBoolean, currlevel));
+    },
+    getLevelPoints: () => {
+      dispatch(getLevelPoints());
+    }, 
+    updatePoints: (currlevel, difflevel) => {
+      dispatch(updatePoints(currlevel, difflevel));
     }
+
   }
 }
 
