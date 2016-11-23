@@ -120,6 +120,30 @@ body {
   margin-left: 10px !important;
 }
 
+#savealert {
+  display: none;
+  margin-top: 0px;
+  margin-bottom: 10px;
+}
+
+#loginalert {
+  display: none;
+  margin-top: 0px;
+  margin-bottom: 10px;
+}
+
+#titlealert {
+  display: none;
+  margin-top: 0px;
+  margin-bottom: 10px;
+}
+
+#lengthalert {
+  display: none;
+  margin-top: 0px;
+  margin-bottom: 10px;
+}
+
 #sandboxrightside {
   display: inline-block;
   margin: 0px !important;
@@ -302,6 +326,16 @@ html {
 .delete:hover {
   color: #F66662;
 }
+
+.share {
+  float: right;
+  margin-right: 10px;
+}
+.share:hover {
+  color: green;
+}
+
+
 
 #gameCardIncomp {
   color: white;

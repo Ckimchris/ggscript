@@ -1,7 +1,7 @@
 import React from 'react';
 import { connect } from 'react-redux'
 import Codemirror from 'react-codemirror';
-import { getTemplateData, saveGame } from '../actions'
+import { getTemplateData, saveGame, getProfileData } from '../actions'
 import { bindActionCreators } from 'redux';
 
 require('../../../node_modules/codemirror/mode/javascript/javascript.js');
@@ -16,7 +16,7 @@ class Sandbox extends React.Component {
     this.state = {
       showError: false,
       gameCode: null,
-      title: 'example game'
+      title: null
     }
   }
 
@@ -52,13 +52,44 @@ class Sandbox extends React.Component {
     }
   }
 
+  decideAlert() {
+    // $('#savealert').hide();
+    document.getElementById('savealert').style.display = 'none';
+    // $('#loginalert').hide();
+    document.getElementById('loginalert').style.display = 'none';
+    // $('#titlealert').hide();
+    document.getElementById('titlealert').style.display = 'none';
+    document.getElementById('lengthalert').style.display = 'none';
+    if(this.state.title && this.props.user.id && this.state.title.length <= 30) {
+      this.props.saveGame(this.props.code, this.state.title);
+      document.getElementById('savealert').style.display = 'inline-block';
+    }
+    if(!this.props.user.id) {
+      document.getElementById('loginalert').style.display = 'inline-block';
+    }
+    if(this.state.title.length > 30 && this.state.title.length) {
+      document.getElementById('lengthalert').style.display = 'inline-block';
+    }
+    if(!this.state.title && this.props.user.id) {
+      document.getElementById('titlealert').style.display = 'inline-block';
+    }
+  }
 
+  hidesave() {
+    // $('#savealert').hide();
+    document.getElementById('savealert').style.display = 'none';
+    // $('#loginalert').hide();
+    document.getElementById('loginalert').style.display = 'none';
+    // $('#titlealert').hide();
+    document.getElementById('titlealert').style.display = 'none';
+    document.getElementById('lengthalert').style.display = 'none';
+  }
 
   updateTitle(newTitle) {
     this.setState({
       title: document.getElementById('title').value
     })
-    console.log(this.state.title);
+    console.log(this.props, "ALL");
   }
 
   stop() {
@@ -155,6 +186,18 @@ class Sandbox extends React.Component {
     return (
       <div>
         <h1 id='makeVideo'> Phaser Sandbox</h1>
+        <div onClick={this.hidesave} className="alert alert-success input-group" id="savealert" role="alert">
+            <strong>Well done!</strong> You successfully saved your game!.
+        </div>
+        <div onClick={this.hidesave} className="alert alert-danger input-group" id="loginalert" role="alert">
+            <strong>Oh no!</strong> You need to log in to save your game!.
+        </div>
+        <div onClick={this.hidesave} className="alert alert-danger input-group" id="titlealert" role="alert">
+            <strong>Oh no!</strong> You need a title if you want to save your game!
+        </div>
+        <div onClick={this.hidesave} className="alert alert-danger input-group" id="lengthalert" role="alert">
+            <strong>Oh no!</strong> Your title is too long - it must be less than 30 characters!
+        </div>
         <div id="moveright">
         <Codemirror value={this.props.code} onChange={this.props.updateCode.bind(this)} options={options} />
         <div id='sandboxrightside'>
@@ -166,7 +209,6 @@ class Sandbox extends React.Component {
             {`Error Column Number: ${this.state.error_colno}`}<br></br>
             </div> : null}
         </div>
-
         <div className="input-group input-grout-lg col-md-8 col-md-offset-2">
           <input className="form-control" id='title' placeholder="Untitled Game" type="text" onChange={this.updateTitle.bind(this)} aria-describedby="sizing-addon1"></input>
         </div>
@@ -174,7 +216,7 @@ class Sandbox extends React.Component {
         <button id='load' className="btn btn-default" onClick={this.loadCode.bind(this)}> 
           Run Game &nbsp;  
           <span className=" glyphicon glyphicon-play-circle" aria-hidden="true"></span></button>
-        <button className="btn btn-default" onClick={this.props.saveGame.bind(this, this.props.code, this.state.title)}> Save &nbsp;  
+        <button className="btn btn-default" onClick={this.decideAlert.bind(this)}> Save &nbsp;  
           <span className=" glyphicon glyphicon-save" aria-hidden="true"></span></button>
         <div id='dropdown' className="dropdown">
           <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -200,7 +242,8 @@ function mapStateToProps(state){
   console.log('SANDBOX STATE: ', state)
   return {
     template: state.getTemplateData,
-    code: state.updateSandboxCode.sandboxGameCode
+    code: state.updateSandboxCode.sandboxGameCode,
+    user: state.userData
   }
 }
 
@@ -214,6 +257,9 @@ function matchDispatchToProps(dispatch){
     },
     updateCode: (code) => {
       dispatch({type: 'UPDATE_SANDBOX_CODE', code: code});
+    },
+    getProfileData: () => {
+      dispatch(getProfileData());
     }
   };
 }
