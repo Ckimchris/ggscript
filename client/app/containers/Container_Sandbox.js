@@ -16,39 +16,8 @@ class Sandbox extends React.Component {
     this.state = {
       showError: false,
       gameCode: null,
-      title: null
-    }
-  }
-
-  handleError() {
-    const component = this;
-    window.onerror = (messageOrEvent, source, lineno, colno, error) => {
-      component.setState({
-        error_message: messageOrEvent,
-        error_source: source,
-        error_lineno: lineno,
-        error_colno: colno,
-        error: error
-      });
-      //if the window receives any error, stop game and display error
-      component.destroyGame();
-      component.displayError();
-    }
-  }
-
-  displayError() {
-    if(document.getElementsByTagName('canvas').length) {
-      document.getElementsByTagName('canvas')[0].remove();
-    }
-    this.setState({showError: true});
-
-  }
-
-  destroyGame() {
-    if(window.game) {
-      if(window.game.destroy && window.game.state){
-        window.game.destroy();
-      }
+      title: undefined,
+      mounting: true
     }
   }
 
@@ -60,18 +29,22 @@ class Sandbox extends React.Component {
     // $('#titlealert').hide();
     document.getElementById('titlealert').style.display = 'none';
     document.getElementById('lengthalert').style.display = 'none';
-    if(this.state.title && this.props.user.id && this.state.title.length <= 30) {
-      this.props.saveGame(this.props.code, this.state.title);
-      document.getElementById('savealert').style.display = 'inline-block';
+    if(this.state.title && this.props.user.id) {
+      if(this.state.title.length <= 30){  
+        this.props.saveGame(this.props.code, this.state.title);
+        document.getElementById('savealert').style.display = 'inline-block';
+      }
     }
     if(!this.props.user.id) {
       document.getElementById('loginalert').style.display = 'inline-block';
     }
-    if(this.state.title.length > 30 && this.state.title.length) {
-      document.getElementById('lengthalert').style.display = 'inline-block';
-    }
     if(!this.state.title && this.props.user.id) {
       document.getElementById('titlealert').style.display = 'inline-block';
+    }
+    if(this.state.title) {
+      if(this.state.title.length > 30){
+        document.getElementById('lengthalert').style.display = 'inline-block'; 
+      }
     }
   }
 
@@ -92,69 +65,46 @@ class Sandbox extends React.Component {
     console.log(this.props, "ALL");
   }
 
-  stop() {
-  if(window.game.input.keyboard) {
-    window.game.input.keyboard.enabled = false;
-    console.log(window.game.input.keyboard.enabled);
-  }
-}
-
-  go() {
-    if(window.game.input.keyboard) {
-      window.game.input.keyboard.enabled = true;
-      console.log(window.game.input.keyboard.enabled);
-    }
-  }
 
   loadCode() {
-    //remove any previous error if there is one
-    if(this.state.showError) {
-      this.setState({showError: false})
-    }
-    //stop the current game code from running
-    this.destroyGame();
-
     //generate and append new script
-    this.generateAndAppendScript();
-
-    //if there is no canvas, display the error page (even if no error has been caught)
-    var component = this;
-    setTimeout(function() {
-      if(!document.getElementsByTagName('canvas').length) {
-        component.displayError();
-      } 
-    }, 500)
+    this.generateAndSendScript();
   }
 
-  generateAndAppendScript() {
-    // remove current game script if there is one
-    if(document.getElementById('gameScript')){
-      document.getElementById('gameScript').remove();
-    }
-    //add the new code to the newly created script tag
-    const script = document.createElement("script");
-    script.text = this.props.code;
-    script.id = 'gameScript';
-    //run the new script by appending it to DOM
-    document.getElementById('gameCode').appendChild(script);
+  generateAndSendScript() {
+    console.log('sending script from container sandbox', this.props.code)
+    windowProxy.post({script: this.props.code, learn: false, sandbox: true});
   }
 
   componentWillMount() {
+    var component = this;
     this.props.getTemplateData();
-    this.handleError();
+    //check for a query string, if one exists, fetch the game
+    if(location.hash.split('?game=')[1]) {
+      var hash = location.hash.split('?game=')[1];
+      fetch(`/api/sharedgames?game=${hash}`)
+      .then(result => {
+        result.json()
+        .then(res => {
+          component.props.updateCode(res.gamecode);
+        })
+        .catch(err => console.log(err))
+      })
+      .catch(err => console.log(err));
+    }
     console.log('BEFORE SANDBOX MT: ', this);
   }
 
   componentDidMount() {
-    this.loadCode();
+    //iframe must load before sending script, or else the iframe will keep executing script from previous page (when switching from sandbox to learn)
+    var component = this;
+    document.getElementById('ggshell').onload = function() {
+      if(component.state.mounting) {
+        component.loadCode();
+        component.setState({mounting: false});
+      }
+    }
   }
-
-  componentWillUnmount() {
-    document.getElementById('gameScript').remove();
-    this.destroyGame();
-  }
-
-
 
   updateTemplate(id) {
     console.log('UPDATED TEMP: ', this.props.template.template[id]);
@@ -167,9 +117,6 @@ class Sandbox extends React.Component {
 
   changeTemplate(id) {
     this.updateTemplate(id);
-    console.log(this.state.code, "in changeTemplate")
-    console.log("before loadcode");
-    console.log("after loadcode");
   }
 
   render() {
@@ -185,12 +132,16 @@ class Sandbox extends React.Component {
     };
     return (
       <div>
-        <h1 id='makeVideo'> Phaser Sandbox</h1>
+        <div className="row">
+          <div className="sandColor">
+            <h1 className="sandTitle" id='makeVideo'> Phaser Sandbox </h1>
+          </div>
+        </div>
         <div onClick={this.hidesave} className="alert alert-success input-group" id="savealert" role="alert">
             <strong>Well done!</strong> You successfully saved your game!.
         </div>
         <div onClick={this.hidesave} className="alert alert-danger input-group" id="loginalert" role="alert">
-            <strong>Oh no!</strong> You need to log in to save your game!.
+            <strong>Oh no!</strong> You need to log in to save your game!
         </div>
         <div onClick={this.hidesave} className="alert alert-danger input-group" id="titlealert" role="alert">
             <strong>Oh no!</strong> You need a title if you want to save your game!
@@ -201,37 +152,29 @@ class Sandbox extends React.Component {
         <div id="moveright">
         <Codemirror value={this.props.code} onChange={this.props.updateCode.bind(this)} options={options} />
         <div id='sandboxrightside'>
-          <div id="gamebox">
-            {this.state.showError ? <div id="errorconsole">
-            Oops, you have an error!<br></br>
-            {`${this.state.error_message}`}<br></br>
-            {`Error Line Number: ${this.state.error_lineno}`}<br></br>
-            {`Error Column Number: ${this.state.error_colno}`}<br></br>
-            </div> : null}
-        </div>
+          <iframe src={(location.hostname === 'localhost' || location.hostname === '127.0.0.1') ? 'http://localhost:3001' : 'https://ggshell.herokuapp.com'} id="ggshell" name="ggshell" scrolling="no"></iframe>
         <div className="input-group input-grout-lg col-md-8 col-md-offset-2">
           <input className="form-control" id='title' placeholder="Untitled Game" type="text" onChange={this.updateTitle.bind(this)} aria-describedby="sizing-addon1"></input>
         </div>
-        <div className="col-md-10 col-md-offset-1">
-        <button id='load' className="btn btn-default" onClick={this.loadCode.bind(this)}> 
-          Run Game &nbsp;  
+        <div className="col-md-10 offset-md-1">
+        <button id='load' className="btn btn-default" onClick={this.loadCode.bind(this)}>
+          Run Game &nbsp;
           <span className=" glyphicon glyphicon-play-circle" aria-hidden="true"></span></button>
-        <button className="btn btn-default" onClick={this.decideAlert.bind(this)}> Save &nbsp;  
-          <span className=" glyphicon glyphicon-save" aria-hidden="true"></span></button>
-        <div id='dropdown' className="dropdown">
-          <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-          Choose a Template
+        <button className="btn btn-default" onClick={this.decideAlert.bind(this)}> Save &nbsp;  <span className=" glyphicon glyphicon-save" aria-hidden="true"></span></button>
+        <div className="btn-group">
+          <button type="button" className="btn btn-secondary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            Choose a Template
           </button>
-        <div className="dropdown-menu" aria-labelledby="dropdownMenuButton">
-           <a className="dropdown-item" onClick={this.changeTemplate.bind(this, 1)}>Space Game</a>
-           <a className="dropdown-item" onClick={this.changeTemplate.bind(this, 2)}>Side Scroller</a>
-           <a className="dropdown-item" onClick={this.changeTemplate.bind(this, 3)}>Adventure Game</a>
+          <div className="dropdown-menu">
+            <li><a onClick={this.changeTemplate.bind(this, 1)}>Space Game</a></li>
+            <li><a onClick={this.changeTemplate.bind(this, 2)}>Side Scroller</a></li>
+            <li><a onClick={this.changeTemplate.bind(this, 3)}>Adventure Game</a></li>
+          </div>
         </div>
         </div>
         </div>
         </div>
         <div id="gameCode">
-        </div>
         </div>
       </div>
       )
